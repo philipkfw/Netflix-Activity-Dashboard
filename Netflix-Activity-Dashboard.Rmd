@@ -36,6 +36,12 @@ color: #000000! important;
 }
 </style>
 
+<style>
+.dropdown-menu {
+    background-color: white;
+}
+</style>
+
 ```{r setup, include=FALSE}
 # working directory
 library(rstudioapi)
@@ -162,7 +168,7 @@ watched_movies_shows_vector <- as.vector(unique(manipulated_csv$web_scrape_URL))
 
 # Export justwatch_manipulated_df to csv file
 # write_csv(justwatch_manipulated_df, "output/justwatch_manipulated_df.csv")
-justwatch_manipulated_df <- read_csv("output/justwatch_manipulated_df.csv")
+justwatch_manipulated_df <- read_csv("output/justwatch_manipulated_df_fixed.csv")
 
 # left join justwatch_manipulated_df (web scraped) to personal activity data
 df <- manipulated_csv %>% left_join(justwatch_manipulated_df, by = c("Manipulated_Title" = "Manipulated_Title")) 
@@ -188,6 +194,7 @@ manipulated_df <- df %>%
   mutate(Month = month(Date)) %>% 
   mutate(WeekDay = weekdays(Date)) %>% 
   mutate(Type = str_to_title(Type))
+  # filter(Title != "The Naked Director")
 
 # remove individual monthly sales dataframes (for cleanliness)
 rm(list=ls(pattern=".csv"))
@@ -198,6 +205,7 @@ color_scale <- c("#E50914", "#141414")
 
 metis_color <- color_scale[1]
 philip_color <- color_scale[2]
+both_color <- "#A0A3A4"
 
 genre_split_df <- manipulated_df %>% 
   separate_rows(Genre, sep = ",") %>%
@@ -231,22 +239,29 @@ selectInput(
   choices = c("All", unique(genre_split_df$Genre)),
   selected = "All")
 
-# Date Range (Month)
-# sliderInput(
-#   inputId = "v_MonthStartDate",
-#   label = "Month Start Date",
-#   min = min(manipulated_df$MonthStartDate),
-#   max = max(manipulated_df$MonthStartDate),
-#   value = 1
-#   # choices = c("All", unique(manipulated_df$MonthStartDate)),
-#   # selected = "All"
-#   )
+# Date Range (Input)
+# dateRangeInput(
+#   inputId = "v_DateRange",
+#   label = "Date Range",
+#   start = min(manipulated_df$Date),
+#   end = max(manipulated_df$Date),
+#   min = min(manipulated_df$Date),
+#   max = max(manipulated_df$Date)
+#   # timeFormat="%Y-%m-%d"
+# )
 
-selectInput(
-  inputId = "v_Title",
-  label = "Content Title",
-  choices = c("All", unique(manipulated_df$Title)),
-  selected = "All")
+# Date Range Slider
+sliderInput(
+  inputId = "v_DateRange",
+  label = "Date Range",
+  min = min(manipulated_df$Date),
+  max = max(manipulated_df$Date),
+  value = c(
+    min(manipulated_df$Date),
+    max(manipulated_df$Date)
+  ),
+  timeFormat="%Y-%m-%d"
+)
 ```
 
 Column {data-width=600}
@@ -259,12 +274,12 @@ renderPlotly({
     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-    filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))) %>%
+    filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
     group_by(User, MonthStartDate) %>% 
     summarise(`Watch Time (Hours)` = sum(Total_Hours)) %>% 
     ungroup() %>% 
     ggplot(aes(x = MonthStartDate, y = `Watch Time (Hours)`, fill = User)) +
-    geom_bar(stat = 'identity', alpha = 0.85) +
+    geom_bar(stat = 'identity') +
     theme_bw() +
     scale_x_date(date_labels="%Y-%m-%d", date_breaks = "1 month") +
     scale_y_continuous(expand = expansion(mult = c(0, .1))) + # reduces the gap between y axis
@@ -273,7 +288,7 @@ renderPlotly({
       y = "Watch Time (Hours)"
     ) +
     theme(axis.text.x = element_text(angle = 90)) +
-    scale_fill_manual(values = c("Metis" = metis_color, "Philip" = philip_color))
+    scale_fill_manual(values = c("Metis" = alpha(metis_color, 0.85), "Philip" = alpha(philip_color, 0.85)))
 })
 
 ```
@@ -285,7 +300,7 @@ renderPlotly({
     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-    filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))) %>%
+    filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
     group_by(User, MonthStartDate) %>% 
     summarise(`Watch Time (Hours)` = sum(Total_Hours)) %>% 
     ungroup() %>% 
@@ -316,22 +331,160 @@ renderPlotly({
 Column {.tabset data-width=400}
 -----------------------------------------------------------------------
 
+### Weekday Watch Times
+```{r, fig.width = 10}
+renderPlotly({
+  manipulated_df %>% 
+    filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
+    filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
+    filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
+    filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
+    ggplot(aes(
+      x = factor(WeekDay, levels = c(
+        'Monday', 'Tuesday', 'Wednesday', 
+        'Thursday', 'Friday', 'Saturday', 'Sunday')), 
+      y = Total_Minutes,
+      fill = User)) + 
+    geom_boxplot(outlier.colour = NULL) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(x = "", y = "Watch Time (Minutes)") +
+    scale_fill_manual(values = c("Metis" = alpha(metis_color, 0.7), "Philip" = alpha(philip_color, 0.7))) +
+    facet_wrap(~User, dir = "v") +
+    theme(
+      legend.position = "none",
+      strip.background = element_rect(color="black", fill="white", size = 0.5, linetype = "solid"),
+      strip.text.x = element_text(size = 12, color = "black", face = "bold"))
+})
+```
+
+### Mutual Interests
+```{r, fig.width = 15}
+# top10titles_df <- manipulated_df %>% 
+#     group_by(Title) %>% 
+#     mutate(ViewerCount = n_distinct(User)) %>% 
+#     ungroup() %>% 
+#     mutate(Viewer = case_when(ViewerCount > 1 ~ "Both", TRUE ~ User)) %>% 
+#     group_by(Viewer, Title, Type) %>% 
+#     summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>% 
+#     arrange(Viewer, Type, desc(`Watch Time (Minutes)`)) %>% 
+#     ungroup() %>% 
+#     group_by(Viewer, Type) %>% 
+#     mutate(Rank = row_number()) %>% 
+#     filter(Rank <= 5)
+
+renderPlotly({
+  manipulated_df %>% 
+    filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
+    filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
+    filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
+    filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
+    group_by(Title) %>% 
+    mutate(ViewerCount = n_distinct(User)) %>% 
+    ungroup() %>% 
+    mutate(Viewer = case_when(ViewerCount > 1 ~ "Both", TRUE ~ User)) %>% 
+    group_by(Viewer, Title, Type) %>% 
+    summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>% 
+    arrange(Viewer, Type, desc(`Watch Time (Minutes)`)) %>% 
+    ungroup() %>% 
+    group_by(Viewer, Type) %>% 
+    mutate(Rank = row_number()) %>% 
+    filter(Rank <= 5) %>% 
+    # filter(Viewer == "Metis") %>% 
+    ggplot(aes(x = reorder(Title, `Watch Time (Minutes)`), y = `Watch Time (Minutes)`)) +
+    geom_bar(stat = 'identity', fill = alpha(metis_color, 0.85)) +
+    coord_flip() +
+    theme_bw() +
+    labs(x = "", y = "") +
+    facet_grid(~Viewer) +
+    scale_y_continuous(expand = expansion(mult = c(0, .1))) # reduces the gap between y axis
+})
+
+# top10titles_philip <- renderPlotly({
+#   manipulated_df %>%
+#     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
+#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
+#     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
+#     filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
+#     group_by(Title) %>%
+#     mutate(ViewerCount = n_distinct(User)) %>%
+#     ungroup() %>%
+#     mutate(Viewer = case_when(ViewerCount > 1 ~ "Both", TRUE ~ User)) %>%
+#     group_by(Viewer, Title, Type) %>%
+#     summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>%
+#     arrange(Viewer, Type, desc(`Watch Time (Minutes)`)) %>%
+#     ungroup() %>%
+#     group_by(Viewer, Type) %>%
+#     mutate(Rank = row_number()) %>%
+#     filter(Rank <= 5) %>%
+#     filter(Viewer == "Philip") %>%
+#     ggplot(aes(x = reorder(Title, `Watch Time (Minutes)`), y = `Watch Time (Minutes)`)) +
+#     geom_bar(stat = 'identity', fill = alpha(philip_color, 0.9)) +
+#     coord_flip() +
+#     theme_bw() +
+#     labs(x = "", y = "") +
+#     scale_y_continuous(expand = expansion(mult = c(0, .1))) # reduces the gap between y axis
+# })
+# 
+# top10titles_both <- renderPlotly({
+#   manipulated_df %>% 
+#     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
+#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
+#     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
+#     filter(Date >= input$v_DateRange[1] & Date <= input$v_DateRange[2]) %>%
+#     group_by(Title) %>% 
+#     mutate(ViewerCount = n_distinct(User)) %>% 
+#     ungroup() %>% 
+#     mutate(Viewer = case_when(ViewerCount > 1 ~ "Both", TRUE ~ User)) %>% 
+#     group_by(Viewer, Title, Type) %>% 
+#     summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>% 
+#     arrange(Viewer, Type, desc(`Watch Time (Minutes)`)) %>% 
+#     ungroup() %>% 
+#     group_by(Viewer, Type) %>% 
+#     mutate(Rank = row_number()) %>% 
+#     filter(Rank <= 5) %>% 
+#     filter(Viewer == "Both") %>% 
+#     ggplot(aes(x = reorder(Title, `Watch Time (Minutes)`), y = `Watch Time (Minutes)`)) +
+#     geom_bar(stat = 'identity', fill = alpha(both_color, 0.85)) +
+#     coord_flip() +
+#     theme_bw() +
+#     labs(x = "", y = "") +
+#     scale_y_continuous(expand = expansion(mult = c(0, .1))) # reduces the gap between y axis
+# })
+# 
+# subplot(top10titles_metis, top10titles_philip, top10titles_both, nrows = 3)
+
+# NetflixContent_table <- manipulated_df %>% 
+#   group_by(Title, Type, Genre) %>% 
+#   mutate(Viewer = case_when(n_distinct(User) == 1 ~ User, TRUE ~ "Both")) %>% 
+#   ungroup() %>% 
+#   group_by(Title, Type, Genre, Viewer) %>% 
+#   summarise(
+#     `Number of Sessions` = n_distinct(Date),
+#     `Watch Time (Minutes)` = sum(Total_Minutes)) %>% 
+#   ungroup() %>% 
+#   distinct() %>% 
+#   arrange(desc(`Watch Time (Minutes)`)) %>% 
+#   head(20) %>% 
+#   relocate(Viewer, .before = Title) %>% 
+#   relocate(Type, .after = Viewer) %>% 
+#   filter(Viewer == "Both")
+# 
+# renderDataTable(
+#   NetflixContent_table %>% 
+#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
+#     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))))
+
+```
+
 ### Popular Genres
 ```{r, fig.width = 10}
 renderPlotly({
   manipulated_df %>% separate_rows(Genre, sep = ",") %>%
     mutate(Genre = str_trim(Genre, side = "both")) %>%
-    # mutate(
-    #   Genre_Category = case_when(
-    #     Genre %in% c("Action & Adventure", "Western") ~ "Action",
-    #     Genre %in% c("Animation", "Fantasy") ~ "Fictional Cartoons",
-    #     Genre %in% c("Documentary", "Reality TV", "Sport", "History") ~ "Non-Fiction",
-    #     Genre %in% c("Horror", "Crime", "Thriller") ~ "Dark",
-    #     TRUE ~ Genre))
     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-    filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))) %>%
     group_by(User, Genre) %>%
     summarise(`Watch Time (Hours)` = sum(Total_Hours)) %>%
     ungroup() %>%
@@ -351,116 +504,41 @@ renderPlotly({
 
 ```
 
-### Weekday Watch Times
-```{r, fig.width = 10}
-renderPlotly({
-  manipulated_df %>% 
-    filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
-    filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-    filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-    filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))) %>%
-    ggplot(aes(
-      x = factor(WeekDay, levels = c(
-        'Monday', 'Tuesday', 'Wednesday', 
-        'Thursday', 'Friday', 'Saturday', 'Sunday')), 
-      y = Total_Minutes,
-      color = User)) + 
-    geom_boxplot(outlier.fill = NULL) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90)) +
-    labs(x = "", y = "Watch Time (Minutes)") +
-    scale_color_manual(values = c("Metis" = metis_color, "Philip" = philip_color)) +
-    facet_wrap(~User, dir = "v") +
-    theme(
-      legend.position = "none",
-      strip.background = element_rect(color="black", fill="white", size = 0.5, linetype = "solid"),
-      strip.text.x = element_text(size = 12, color = "black", face = "bold"))
-})
-```
 
-### Mutual Watches
+<!-- ### Treemap -->
+<!-- ```{r} -->
+<!-- summaryTable <- genre_split_df %>%  -->
+<!--   group_by(Genre) %>%  -->
+<!--   summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>%  -->
+<!--   ungroup() %>%  -->
+<!--   arrange(desc(`Watch Time (Minutes)`)) -->
 
-```{r, fig.width = 15}
-NetflixContent_table <- manipulated_df %>% 
-  group_by(Title, Type, Genre) %>% 
-  mutate(Viewer = case_when(n_distinct(User) == 1 ~ User, TRUE ~ "Both")) %>% 
-  ungroup() %>% 
-  group_by(Title, Type, Genre, Viewer) %>% 
-  summarise(
-    `Number of Sessions` = n_distinct(Date),
-    `Watch Time (Minutes)` = sum(Total_Minutes)) %>% 
-  ungroup() %>% 
-  distinct() %>% 
-  arrange(desc(`Watch Time (Minutes)`)) %>% 
-  relocate(Viewer, .before = Title) %>% 
-  relocate(Type, .after = Viewer) %>% 
-  filter(Viewer == "Both")
+<!-- treemap <- summaryTable %>%  -->
+<!--   hchart( -->
+<!--     "treemap", -->
+<!--     hcaes(x = Genre, value = `Watch Time (Minutes)`, color = `Watch Time (Minutes)`) -->
+<!--   ) -->
 
-renderDataTable(
-  NetflixContent_table %>% 
-    filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-    filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-    filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))))
+<!-- renderPlot({ -->
+<!--   treemap %>%  -->
+<!--     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>% -->
+<!--     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>% -->
+<!--     filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title))) -->
+<!-- }) -->
 
-    # filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
-    # filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))))
+<!-- treemap -->
 
-# WeekDayViewing_df <- manipulated_df %>%
-#     # filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
-#     # filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-#     group_by(WeekDay) %>%
-#     summarise(Total_WatchTime_Minutes = sum(Total_Minutes)) %>%
-#     ungroup()
+<!-- # genre_split_df %>%  -->
+<!-- #   group_by(Genre) %>%  -->
+<!-- #   summarise(Total_Minutes = sum(Total_Minutes)) %>%  -->
+<!-- #   ungroup() %>%  -->
+<!-- #   ggplot(aes(area = Total_Minutes, fill = Total_Minutes, label = Genre)) + -->
+<!-- #   geom_treemap() + -->
+<!-- #   geom_treemap_text(color = "white", place = "center") + -->
+<!-- #   scale_fill_brewer(palette = 'Blues') -->
 
-# treeplot <- plot_ly(
-#   type = 'treemap',
-#   labels = WeekDayViewing_df$WeekDay,
-#   values = WeekDayViewing_df$Total_WatchTime_Minutes
-# )
-# 
-# 
-# fig <- plot_ly(
-#   type='treemap',
-#   ids=df$ids,
-#   labels=df$labels,
-#   parents=df$parents)
-# 
-# fig <- fig %>% layout(uniformtext=list(minsize=10, mode='hide'))
-# fig
-# 
-# renderPlotly({
-#    %>% 
-#     ggplot(aes(area = Total_WatchTime_Minutes, fill = Total_WatchTime_Minutes, label = WeekDay)) +
-#     geom_treemap() +
-#     geom_treemap_text(fontface = "italic", color = "white", place = "centre")
-# })
-#   
+<!-- ``` -->
 
-# renderPlotly({
-#   genre_split_df %>% 
-#     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
-#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-#     group_by(Title, Genre) %>% 
-#     summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>%
-#     ungroup() %>%
-#     arrange(desc(`Watch Time (Minutes)`)) %>% 
-#     head(20) %>% 
-#     ggplot(aes(x = reorder(Title, `Watch Time (Minutes)`), y = `Watch Time (Minutes)`, fill = Genre)) + 
-#     # geom_point(alpha = 0.8, size = 3) +
-#     geom_bar(stat = 'identity') +
-#     coord_flip() +
-#     theme_bw() +
-#     # scale_x_date(date_labels="%Y-%m-%d", date_breaks = "1 month") +
-#     scale_y_continuous(expand = expansion(mult = c(0, .1))) + # reduces the gap between y axis
-#     labs(
-#         x = "",
-#         y = "Viewing Time (Minutes)"
-#       ) +
-#     theme(axis.text.x = element_text(angle = 90)) +
-#     scale_fill_manual(values=color_scale)
-# })
-
-```
 
 <!-- Idea: Average viewing time per week day -->
 
