@@ -1,14 +1,15 @@
 ---
 title: "Netflix Activity Dashboard"
-date: "Updated: `r Sys.Date()`"
-output: 
+date: 'Updated: `r Sys.Date()`'
+output:
   flexdashboard::flex_dashboard:
-    # theme:
-    #   bootswatch: cyborg
     orientation: columns
     vertical_layout: fill
     theme: paper
 runtime: shiny
+resource_files:
+- input/NetflixViewingHistory_Metis.csv
+- input/NetflixViewingHistory_Philip.csv
 ---
 
 <style>                     
@@ -43,14 +44,6 @@ color: #000000! important;
 </style>
 
 ```{r setup, include=FALSE}
-# working directory
-library(rstudioapi)
-if(rstudioapi::isAvailable()){
-  path <- rstudioapi::getActiveDocumentContext()$path
-  Encoding(path) <- "UTF-8"
-  setwd(dirname(path))
-}
-
 # import packages
 library(tidyverse)
 library(gridExtra) # to plot multiple ggplot objects
@@ -122,53 +115,55 @@ watched_movies_shows_vector <- as.vector(unique(manipulated_csv$web_scrape_URL))
 
 # for loop to scrape all the movie data captured from the website;
 # URL: https://www.justwatch.com/
-# for (i in 1:length(watched_movies_shows_vector)){
-#   justwatch_link <- watched_movies_shows_vector[i]
-#   justwatch_page <- try(read_html(justwatch_link), silent = TRUE)
-#   Title <- try(justwatch_page %>% html_nodes("h1") %>% html_text(), silent = TRUE)
-#   Genre <- try(justwatch_page %>% html_nodes(".detail-infos__value span") %>% html_text(), silent = TRUE)
-#   Runtime <- try(justwatch_page %>% html_nodes(".detail-infos:nth-child(4) .detail-infos__value") %>% html_text(), silent = TRUE)
-#   
-#   i_df <- try(data.frame(Title, Genre, Runtime, stringsAsFactors = FALSE) %>% 
-#     mutate(Genre = str_replace_all(Genre, ",","")) %>% 
-#     mutate(Genre = str_trim(Genre, side = c("both"))) %>% 
-#     filter(Genre != "") %>% 
-#     distinct(), silent = TRUE)
-#   
-#   if (!exists("justwatch_df")){
-#     justwatch_df <- i_df  
-#   } else {
-#     justwatch_df <- rbind(justwatch_df, i_df)
-#   }
-#   rm(i_df)
-#   rm(justwatch_page)
-# }
-# 
-# Genres_vector <- as.vector(c("History", "Documentary", "Music & Musical", "Sport", "Horror", 
-#                            "Reality TV", "Crime", "Myster & Thriller", "Fantasy", "Comedy", 
-#                            "Western", "Animation", "Action & Adventure", "Science-Friction", "Romance", "Drama"))
-# 
-# justwatch_manipulated_df <- justwatch_df %>% 
-#   filter(!str_detect(Title,"Error")) %>% 
-#   filter(Genre %in% Genres_vector) %>% 
-#   group_by(Title, Runtime) %>% 
-#   summarise(Genre = paste0(Genre, collapse = ", ")) %>% 
-#   ungroup() %>% 
-#   mutate(Title = str_trim(Title, side = c("both"))) %>% 
-#   mutate(Manipulated_Title = str_to_lower(Title)) %>% 
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, " ","-")) %>% 
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "!", "")) %>% 
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "’", "")) %>%
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "'", "")) %>%
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "&", "and")) %>%
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "‘", "")) %>%
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, ",", "")) %>%
-#   mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "ū", "u")) %>%
-#   select(-Title)
+for (i in 1:length(watched_movies_shows_vector)){
+  justwatch_link <- watched_movies_shows_vector[i]
+  justwatch_page <- try(read_html(justwatch_link), silent = TRUE)
+  Title <- try(justwatch_page %>% html_nodes("h1") %>% html_text(), silent = TRUE)
+  Genre <- try(justwatch_page %>% html_nodes(".detail-infos__value span") %>% html_text(), silent = TRUE)
+  Runtime <- try(justwatch_page %>% html_nodes(".detail-infos:nth-child(4) .detail-infos__value") %>% html_text(), silent = TRUE)
+
+  i_df <- try(data.frame(Title, Genre, Runtime, stringsAsFactors = FALSE) %>%
+    mutate(Genre = str_replace_all(Genre, ",","")) %>%
+    mutate(Genre = str_trim(Genre, side = c("both"))) %>%
+    filter(Genre != "") %>%
+    distinct(), silent = TRUE)
+
+  if (!exists("justwatch_df")){
+    justwatch_df <- i_df
+  } else {
+    justwatch_df <- rbind(justwatch_df, i_df)
+  }
+  rm(i_df)
+  rm(justwatch_page)
+}
+
+Genres_vector <- as.vector(c("History", "Documentary", "Music & Musical", "Sport", "Horror",
+                           "Reality TV", "Crime", "Myster & Thriller", "Fantasy", "Comedy",
+                           "Western", "Animation", "Action & Adventure", "Science-Friction", "Romance", "Drama"))
+
+justwatch_manipulated_df <- justwatch_df %>%
+  filter(!str_detect(Title,"Error")) %>%
+  filter(Genre %in% Genres_vector) %>%
+  group_by(Title, Runtime) %>%
+  summarise(Genre = paste0(Genre, collapse = ", ")) %>%
+  ungroup() %>%
+  mutate(Title = str_trim(Title, side = c("both"))) %>%
+  mutate(Manipulated_Title = str_to_lower(Title)) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, " ","-")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "!", "")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "’", "")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "'", "")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "&", "and")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "‘", "")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, ",", "")) %>%
+  mutate(Manipulated_Title = str_replace_all(Manipulated_Title, "ū", "u")) %>%
+  select(-Title)
 
 # Export justwatch_manipulated_df to csv file
-# write_csv(justwatch_manipulated_df, "output/justwatch_manipulated_df.csv")
-justwatch_manipulated_df <- read_csv("output/justwatch_manipulated_df_fixed.csv")
+write_csv(justwatch_manipulated_df, "output/justwatch_manipulated_df.csv")
+
+# Import hard-coded df
+# justwatch_manipulated_df <- read_csv("output/justwatch_manipulated_df_fixed.csv")
 
 # left join justwatch_manipulated_df (web scraped) to personal activity data
 df <- manipulated_csv %>% left_join(justwatch_manipulated_df, by = c("Manipulated_Title" = "Manipulated_Title")) 
@@ -194,7 +189,6 @@ manipulated_df <- df %>%
   mutate(Month = month(Date)) %>% 
   mutate(WeekDay = weekdays(Date)) %>% 
   mutate(Type = str_to_title(Type))
-  # filter(Title != "The Naked Director")
 
 # remove individual monthly sales dataframes (for cleanliness)
 rm(list=ls(pattern=".csv"))
@@ -211,9 +205,6 @@ genre_split_df <- manipulated_df %>%
   separate_rows(Genre, sep = ",") %>%
   mutate(Genre = str_trim(Genre, side = "both"))
 ```
-
-<!-- Summary -->
-<!-- ======================================================================= -->
 
 column {.sidebar}
 -----------------------------------------------------------------------
@@ -238,17 +229,6 @@ selectInput(
   label = "Genre",
   choices = c("All", unique(genre_split_df$Genre)),
   selected = "All")
-
-# Date Range (Input)
-# dateRangeInput(
-#   inputId = "v_DateRange",
-#   label = "Date Range",
-#   start = min(manipulated_df$Date),
-#   end = max(manipulated_df$Date),
-#   min = min(manipulated_df$Date),
-#   max = max(manipulated_df$Date)
-#   # timeFormat="%Y-%m-%d"
-# )
 
 # Date Range Slider
 sliderInput(
@@ -360,12 +340,6 @@ renderPlotly({
 
 ### Top Genres
 ```{r, fig.width = 10}
-# summaryTable <- genre_split_df %>%
-#   group_by(Genre) %>%
-#   summarise(`Watch Time (Minutes)` = sum(Total_Minutes)) %>%
-#   ungroup() %>%
-#   arrange(desc(`Watch Time (Minutes)`))
-
 renderPlotly({
   plot_ly(
     data = genre_split_df %>%
@@ -385,43 +359,6 @@ renderPlotly({
     textinfo = "label+value",
     marker = list(colorscale = 'Reds'))
 })
-
-# treemap <- summaryTable %>%
-#   hchart(
-#     "treemap",
-#     hcaes(x = Genre, value = `Watch Time (Minutes)`, color = `Watch Time (Minutes)`)
-#   )
-
-# renderPlot({
-#   treemap %>%
-#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-#     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-#     filter(str_detect(Title, if_else(input$v_Title == "All", "", input$v_Title)))
-# })
-
-
-# renderPlotly({
-#   manipulated_df %>% separate_rows(Genre, sep = ",") %>%
-#     mutate(Genre = str_trim(Genre, side = "both")) %>%
-#     filter(str_detect(User, if_else(input$v_User == "All", "", input$v_User))) %>%
-#     filter(str_detect(Type, if_else(input$v_Type == "All", "", input$v_Type))) %>%
-#     filter(str_detect(Genre, if_else(input$v_Genre == "All", "", input$v_Genre))) %>%
-#     group_by(User, Genre) %>%
-#     summarise(`Watch Time (Hours)` = round(sum(Total_Minutes)/60,0)) %>%
-#     ungroup() %>%
-#     ggplot(aes(x = reorder(Genre, `Watch Time (Hours)`), `Watch Time (Hours)`, fill = User)) +
-#     geom_bar(position="dodge", stat = 'identity', alpha = 0.85) +
-#     coord_flip() +
-#     theme_bw() +
-#     scale_y_continuous(expand = expansion(mult = c(0, .1))) + # reduces the gap between y axis
-#     labs(x = "", y = "Watch Time (Hours)") +
-#     scale_fill_manual(values = c("Metis" = metis_color, "Philip" = philip_color)) +
-#     facet_wrap(~User, dir = "v") +
-#     theme(
-#       legend.position = "none",
-#       strip.background = element_rect(color="black", fill="white", size = 0.5, linetype = "solid"),
-#       strip.text.x = element_text(size = 12, color = "black", face = "bold"))
-# }) 
 
 ```
 
@@ -459,118 +396,3 @@ renderPlotly({
 })
 
 ```
-
-<!-- # ### Treemap -->
-<!-- # ```{r} -->
-
-<!-- <!-- treemap --> -->
-
-<!-- <!-- # genre_split_df %>%  --> -->
-<!-- <!-- #   group_by(Genre) %>%  --> -->
-<!-- <!-- #   summarise(Total_Minutes = sum(Total_Minutes)) %>%  --> -->
-<!-- <!-- #   ungroup() %>%  --> -->
-<!-- <!-- #   ggplot(aes(area = Total_Minutes, fill = Total_Minutes, label = Genre)) + --> -->
-<!-- <!-- #   geom_treemap() + --> -->
-<!-- <!-- #   geom_treemap_text(color = "white", place = "center") + --> -->
-<!-- <!-- #   scale_fill_brewer(palette = 'Blues') --> -->
-
-<!-- <!-- ``` --> -->
-
-<!-- <!-- Idea: Average viewing time per week day --> -->
-
-<!-- <!-- Details --> -->
-<!-- <!-- ======================================================================= --> -->
-
-<!-- <!-- Row {data-height=500} --> -->
-<!-- <!-- ----------------------------------------------------------------------- --> -->
-
-<!-- <!-- ### Metis' Most Popular Content Genres    --> -->
-
-<!-- <!-- ```{r, fig.width = 18} --> -->
-<!-- <!-- # split Genres with multiple values into multiple rows with a single value --> -->
-<!-- <!-- genre_split_df <- separate_rows(manipulated_df, Genre, sep = ",") %>% --> -->
-<!-- <!--   mutate(Genre = str_trim(Genre, side = "both")) %>% --> -->
-<!-- <!--   mutate( --> -->
-<!-- <!--     Genre_Category = case_when( --> -->
-<!-- <!--       Genre %in% c("Action & Adventure", "Western") ~ "Action", --> -->
-<!-- <!--       Genre %in% c("Animation", "Fantasy") ~ "Fictional Cartoons", --> -->
-<!-- <!--       Genre %in% c("Documentary", "Reality TV", "Sport", "History") ~ "Non-Fiction", --> -->
-<!-- <!--       Genre %in% c("Horror", "Crime", "Thriller") ~ "Dark", --> -->
-<!-- <!--       TRUE ~ Genre --> -->
-<!-- <!--     ) --> -->
-<!-- <!--   ) --> -->
-
-<!-- <!-- ggplotly( --> -->
-<!-- <!--   genre_split_df %>%  --> -->
-<!-- <!--     filter(User == 'Metis') %>%  --> -->
-<!-- <!--     group_by(Genre_Category) %>%  --> -->
-<!-- <!--     summarise(DistinctContent_Videos = n_distinct(Title)) %>%  --> -->
-<!-- <!--     ungroup() %>%  --> -->
-<!-- <!--     ggplot(aes(x = reorder(Genre_Category, DistinctContent_Videos), y = DistinctContent_Videos)) + --> -->
-<!-- <!--     geom_bar(stat = 'identity', fill = metis_color) + --> -->
-<!-- <!--     coord_flip() + --> -->
-<!-- <!--     theme_bw() + --> -->
-<!-- <!--     labs( --> -->
-<!-- <!--       x = "", --> -->
-<!-- <!--       y = "" --> -->
-<!-- <!--     ) + --> -->
-<!-- <!--     geom_text(aes(label = DistinctContent_Videos), position = position_stack(vjust = 0.5), size = 4, color = "white") + --> -->
-<!-- <!--     scale_y_continuous(expand = expansion(mult = c(0, .1))) # reduces the gap between y axis --> -->
-<!-- <!-- ) --> -->
-<!-- <!-- #  --> -->
-<!-- <!-- # test <- genre_split_df %>%  --> -->
-<!-- <!-- #   group_by(Genre_Category, Genre) %>%  --> -->
-<!-- <!-- #   summarise(Total_Content = n_distinct(Title)) %>%  --> -->
-<!-- <!-- #   ungroup() --> -->
-<!-- <!-- #  --> -->
-<!-- <!-- # # treemap_plot --> -->
-<!-- <!-- # treemap <- treemap( --> -->
-<!-- <!-- #   test, --> -->
-<!-- <!-- #   index=c("Genre_Category","Genre"), --> -->
-<!-- <!-- #   vSize="Total_Content", --> -->
-<!-- <!-- #   type="index", --> -->
-<!-- <!-- #   palette = "Set2", --> -->
-<!-- <!-- #   bg.labels=c("white"), --> -->
-<!-- <!-- #   align.labels=list( --> -->
-<!-- <!-- #     c("center","center"), --> -->
-<!-- <!-- #     c("right","bottom") --> -->
-<!-- <!-- #   ) --> -->
-<!-- <!-- # ) --> -->
-<!-- <!-- #  --> -->
-<!-- <!-- # plotly(treemap) --> -->
-<!-- <!-- #  --> -->
-<!-- <!-- # test <- genre_split_df %>%  --> -->
-<!-- <!-- #   group_by(Genre_Category, Genre) %>%  --> -->
-<!-- <!-- #   summarise(Total_Content = n_distinct(Title)) %>%  --> -->
-<!-- <!-- #   ungroup() %>%  --> -->
-<!-- <!-- #   ggplot(aes(area = Total_Content, fill = Genre, label = Total_Content, subgroup = Genre_Category)) + --> -->
-<!-- <!-- #   geom_treemap() + --> -->
-<!-- <!-- #   geom_treemap_subgroup_border() + --> -->
-<!-- <!-- #   geom_treemap_text(fontface = "italic", color = "white", place = "centre") --> -->
-
-
-<!-- <!-- ``` --> -->
-
-<!-- <!-- ### Philip's Most Popular Content Genres --> -->
-
-<!-- <!-- ```{r, fig.width = 18} --> -->
-<!-- <!-- ggplotly( --> -->
-<!-- <!--   genre_split_df %>%  --> -->
-<!-- <!--     filter(User == 'Philip') %>%  --> -->
-<!-- <!--     group_by(Genre_Category) %>%  --> -->
-<!-- <!--     summarise(DistinctContent_Videos = n_distinct(Title)) %>%  --> -->
-<!-- <!--     ungroup() %>%  --> -->
-<!-- <!--     ggplot(aes(x = reorder(Genre_Category, DistinctContent_Videos), y = DistinctContent_Videos)) + --> -->
-<!-- <!--     geom_bar(stat = 'identity', fill = philip_color) + --> -->
-<!-- <!--     coord_flip() + --> -->
-<!-- <!--     theme_bw() + --> -->
-<!-- <!--     labs( --> -->
-<!-- <!--       x = "", --> -->
-<!-- <!--       y = "" --> -->
-<!-- <!--     ) + --> -->
-<!-- <!--     geom_text(aes(label = DistinctContent_Videos), position = position_stack(vjust = 0.5), size = 4, color = "white") + --> -->
-<!-- <!--     scale_y_continuous(expand = expansion(mult = c(0, .1))) # reduces the gap between y axis --> -->
-<!-- <!-- ) --> -->
-<!-- <!-- ``` --> -->
-
-
